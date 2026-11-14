@@ -332,7 +332,7 @@ function schedule() {
     else if (eighthClick) playBuf(clickLo, nextTime);
     queue.push({ t: nextTime, step: sStep, rep: sRep, pat: sPat });
 
-    nextTime += 60 / bpm / 2; // Achtel
+    nextTime += 60 / bpm / 4; // Sechzehntel-Tempo (Notation zeigt Achtel)
     sStep++;
     if (sStep >= STEPS) {
       sStep = 0; sRep++;
