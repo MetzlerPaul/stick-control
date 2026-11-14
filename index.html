@@ -52,22 +52,30 @@
   .pattern-btn .caret { font-size: 0.8rem; }
 
   /* Sticking */
-  .sticking { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center; transition: opacity .25s; }
-  .sticking.fade { opacity: 0; }
+  .stage { width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 6px; }
+  .cur, .next { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .cur { --nfs: clamp(2rem, 8.5vw, 5rem); transition: opacity .25s; }
+  .cur.fade { opacity: 0; }
+  .next { --nfs: clamp(1.6rem, 6.8vw, 4rem); opacity: 0; margin-top: 6px; pointer-events: none; }
+  .sticking { display: flex; flex-direction: column; gap: 4px; align-items: center; }
   .sticking.hidden { display: none; }
-  .bar { display: flex; gap: clamp(4px, 1.2vw, 12px); }
-  .grp { display: flex; gap: clamp(2px, 0.8vw, 8px); margin: 0 clamp(6px, 2vw, 18px); }
+  .row { display: flex; align-items: center; font-size: var(--nfs); }
+  .grp { display: flex; gap: .08em; margin: 0 .25em; }
+  .rpt { width: .35em; height: 1.1em; fill: var(--dim); margin: 0 .1em; flex: none; }
+  .rpt-sp { width: .35em; margin: 0 .1em; flex: none; }
   .n {
-    width: clamp(28px, 6.5vw, 54px);
+    width: .95em;
     text-align: center;
-    font-size: clamp(1.6rem, 5.5vw, 3rem);
+    font-size: 1em;
     font-weight: 800;
-    line-height: 1.25;
+    line-height: 1.2;
     transition: transform .07s, color .07s;
     position: relative;
   }
-  .n.R { color: var(--ochre-soft); }
-  .n.L { color: var(--wine-soft); }
+  .n.R { color: var(--ochre); }
+  .n.L { color: #e0414f; }
+  .n.dim.R { color: var(--ochre-soft); }
+  .n.dim.L { color: var(--wine-soft); }
   .n.on.R { color: var(--ochre); transform: scale(1.08); }
   .n.on.L { color: #e0414f; transform: scale(1.08); }
   .n::after {
@@ -77,9 +85,11 @@
   .n.on::after { background: var(--text); }
 
   /* Notation (gleicher Platz wie .sticking) */
-  .notation { width: 100%; max-width: 680px; margin-top: 10px; overflow-x: auto; display: none; }
+  .notation { width: 100%; max-width: 860px; display: none; }
   .notation.show { display: block; }
-  .notation svg { width: 100%; height: auto; }
+  .notation svg, #nextBox.nota svg { width: 100%; height: auto; display: block; }
+  #nextBox { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  #nextBox.nota { width: 80%; max-width: 688px; }
 
   /* Tap-Zone (mittlerer Bereich = Play/Pause) */
   .tap-zone {
@@ -90,7 +100,7 @@
 
   /* Wiederholung */
   .rep-num {
-    font-size: clamp(8rem, 38vmin, 24rem);
+    font-size: clamp(6rem, min(38vmin, 30vh), 24rem);
     font-weight: 800; line-height: 0.95;
     color: var(--ochre);
     font-variant-numeric: tabular-nums;
@@ -106,7 +116,8 @@
     width: 44px; height: 44px; border-radius: 50%;
     color: var(--dim);
   }
-  .opt.on { color: var(--ochre); }
+  .opt.def { color: var(--ochre); }
+  .opt.alt { color: var(--wine); }
   .opt svg { width: 22px; height: 22px; }
   .opt-label { font-size: 0.85rem; font-weight: 800; }
 
@@ -175,12 +186,17 @@
 </head>
 <body>
 <div id="app">
-  <button class="pattern-btn" id="patBtn" aria-label="Muster wählen">
+  <button class="pattern-btn" id="patBtn" aria-label="Pattern wählen">
     <b id="patNo">1</b> / 24 <span class="caret">▼</span>
   </button>
 
-  <div class="sticking" id="sticking"></div>
-  <div class="notation" id="notation"></div>
+  <div class="stage">
+    <div class="cur" id="cur">
+      <div class="sticking" id="sticking"></div>
+      <div class="notation" id="notation"></div>
+    </div>
+    <div class="next" id="next"><div id="nextBox"></div></div>
+  </div>
 
   <div class="tap-zone" id="tapZone">
     <div class="rep-num" id="repNum">1</div>
@@ -225,7 +241,7 @@
 
 <div class="ov" id="pickOv">
   <div class="sheet">
-    <div class="sheet-head"><span style="width:60px"></span><h3>MUSTER WÄHLEN</h3><button class="done" id="pickDone">Fertig</button></div>
+    <div class="sheet-head"><span style="width:60px"></span><h3>PATTERN WÄHLEN</h3><button class="done" id="pickDone">Fertig</button></div>
     <ul class="plist" id="plist"></ul>
   </div>
 </div>
@@ -245,8 +261,8 @@ const REPS = 20, STEPS = 16, PRESETS = [80, 85, 90, 95, 100, 105, 110, 115, 120]
 const saved = (() => { try { return JSON.parse(localStorage.getItem("sc") || "{}"); } catch (e) { return {}; } })();
 let bpm = saved.bpm || 100;
 let randomMode = !!saved.random;
-let eighthClick = saved.eighth !== undefined ? !!saved.eighth : true;
-let showNotation = !!saved.nota;
+let eighthClick = saved.eighth !== undefined ? !!saved.eighth : false;
+let showNotation = saved.nota !== undefined ? !!saved.nota : true;
 let highlightOn = saved.hl !== undefined ? !!saved.hl : true;
 let pat = Number.isInteger(saved.pat) ? saved.pat : 0;
 let rep = 0, playing = false;
@@ -309,7 +325,7 @@ function playBuf(buf, when) {
 }
 
 // ─── Scheduler ───
-let nextTime = 0, sStep = 0, sRep = 0, sPat = 0, timer = null, queue = [];
+let nextTime = 0, sStep = 0, sRep = 0, sPat = 0, sNext = 1, timer = null, queue = [];
 const LOOKAHEAD = 0.15;
 
 function nextPattern(cur) {
@@ -332,12 +348,12 @@ function schedule() {
     else if (isQuarter && isLastRep) playBuf(clickAcc, nextTime);
     else if (isQuarter) playBuf(clickHi, nextTime);
     else if (eighthClick && isEighth) playBuf(clickLo, nextTime);
-    queue.push({ t: nextTime, step: sStep, rep: sRep, pat: sPat });
+    queue.push({ t: nextTime, step: sStep, rep: sRep, pat: sPat, next: sNext });
     nextTime += 60 / bpm / 4;
     sStep++;
     if (sStep >= STEPS) {
       sStep = 0; sRep++;
-      if (sRep >= REPS) { sRep = 0; sPat = nextPattern(sPat); }
+      if (sRep >= REPS) { sRep = 0; sPat = sNext; sNext = nextPattern(sPat); }
     }
   }
 }
@@ -349,8 +365,14 @@ function draw() {
     let cur = null;
     while (queue.length && queue[0].t <= now) cur = queue.shift();
     if (cur) {
-      if (cur.pat !== pat) { pat = cur.pat; rep = cur.rep; renderPattern(true); save(); }
-      if (cur.rep !== rep) { rep = cur.rep; renderRep(true); }
+      if (cur.pat !== pat) {
+        const had = teaserPat === cur.pat;
+        pat = cur.pat; rep = cur.rep;
+        if (had) slideToNext(); else { hideTeaser(); renderPattern(true); }
+        renderRep(true); save();
+      }
+      else if (cur.rep !== rep) { rep = cur.rep; renderRep(true); }
+      if (cur.rep >= REPS - 2 && teaserPat !== cur.next) showTeaser(cur.next, cur.rep);
       setActive(cur.step);
       if (cur.step === 0) pulse();
     }
@@ -364,6 +386,7 @@ function start() {
   playing = true;
   sPat = pat; sRep = rep; sStep = 0; queue = [];
   played = new Set([pat]);
+  sNext = nextPattern(pat);
   const go = () => {
     if (!playing) return;
     nextTime = ctx.currentTime + 0.08;
@@ -381,12 +404,14 @@ function start() {
 function stop() {
   playing = false;
   clearInterval(timer); timer = null; queue = [];
+  hideTeaser();
   setActive(-1); renderPlay(); keepAwake(false);
 }
 
 function jumpTo(i) {
   pat = i; rep = 0; played = new Set([i]);
-  if (playing && ctx) { sPat = i; sRep = 0; sStep = 0; queue = []; nextTime = ctx.currentTime + 0.06; }
+  if (playing && ctx) { sPat = i; sRep = 0; sStep = 0; queue = []; nextTime = ctx.currentTime + 0.06; sNext = nextPattern(i); }
+  hideTeaser();
   renderPattern(true); renderRep(); save();
 }
 
@@ -415,36 +440,87 @@ const ICON_4TH  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ICON_STAFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="8" x2="22" y2="8"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="16" x2="22" y2="16"/><circle cx="8" cy="14" r="2" fill="currentColor" stroke="none"/><path d="M10 14V6"/><circle cx="18" cy="14" r="2" fill="currentColor" stroke="none"/><path d="M20 14V6"/></svg>';
 
 let noteEls = [];
-function renderPattern(animate) {
-  const box = $("sticking");
-  const build = () => {
-    box.innerHTML = ""; noteEls = [];
-    const s = EX[pat];
-    for (let b = 0; b < 2; b++) {
-      const bar = document.createElement("div"); bar.className = "bar";
-      for (let g = 0; g < 2; g++) {
-        const grp = document.createElement("div"); grp.className = "grp";
-        for (let k = 0; k < 4; k++) {
-          const idx = b * 8 + g * 4 + k;
-          const el = document.createElement("span"); el.className = "n " + s[idx]; el.textContent = s[idx];
-          grp.appendChild(el); noteEls[idx] = el;
-        }
-        bar.appendChild(grp);
+function buildLetters(box, p, dimAll) {
+  box.innerHTML = "";
+  const s = EX[p], els = [];
+  for (let b = 0; b < 2; b++) {
+    const row = document.createElement("div"); row.className = "row";
+    for (let g = 0; g < 2; g++) {
+      const grp = document.createElement("div"); grp.className = "grp";
+      for (let k = 0; k < 4; k++) {
+        const idx = b * 8 + g * 4 + k;
+        const el = document.createElement("span"); el.className = "n " + s[idx] + (dimAll ? " dim" : ""); el.textContent = s[idx];
+        grp.appendChild(el); els[idx] = el;
       }
-      box.appendChild(bar);
+      row.appendChild(grp);
     }
+    box.appendChild(row);
+  }
+  return els;
+}
+
+function renderPattern(animate) {
+  const box = $("cur");
+  const build = () => {
+    noteEls = buildLetters($("sticking"), pat, highlightOn);
     $("patNo").textContent = pat + 1;
     shownStep = -1;
+    renderView();
   };
-  if (animate) { box.classList.add("fade"); setTimeout(() => { build(); box.classList.remove("fade"); renderView(); }, 120); }
-  else { build(); renderView(); }
+  if (animate) { box.classList.add("fade"); setTimeout(() => { build(); box.classList.remove("fade"); }, 120); }
+  else build();
 }
 
 function setActive(step) {
-  if (shownStep === step) return;
+  const idx = step < 0 ? -1 : step;
+  if (shownStep === idx) return;
   if (noteEls[shownStep]) noteEls[shownStep].classList.remove("on");
-  if (noteEls[step] && highlightOn && !showNotation) noteEls[step].classList.add("on");
-  shownStep = step;
+  if (noteEls[idx] && highlightOn && !showNotation) noteEls[idx].classList.add("on");
+  shownStep = idx;
+}
+
+// ─── Teaser: nächstes Pattern blendet ab Wiederholung 19 darunter ein ───
+let teaserPat = -1;
+function renderNextBox() {
+  const box = $("nextBox");
+  if (teaserPat < 0) { box.innerHTML = ""; return; }
+  box.classList.toggle("nota", showNotation);
+  if (showNotation) box.innerHTML = notationSVG(teaserPat);
+  else buildLetters(box, teaserPat, false);
+}
+function showTeaser(p, fromRep) {
+  const nx = $("next");
+  teaserPat = p; renderNextBox();
+  nx.style.transition = "none"; nx.style.opacity = "0"; void nx.offsetWidth;
+  const dur = (REPS - fromRep) * 240 / bpm;
+  nx.style.transition = `opacity ${dur}s linear`;
+  nx.style.opacity = "0.6";
+}
+function hideTeaser() {
+  const nx = $("next");
+  teaserPat = -1;
+  nx.style.transition = "none"; nx.style.opacity = "0";
+  renderNextBox();
+}
+function slideToNext() {
+  const cur = $("cur"), nx = $("next");
+  const dy = nx.getBoundingClientRect().top - cur.getBoundingClientRect().top;
+  const op = parseFloat(getComputedStyle(nx).opacity) || 0.3;
+  noteEls = buildLetters($("sticking"), pat, highlightOn);
+  $("patNo").textContent = pat + 1;
+  shownStep = -1;
+  renderView();
+  hideTeaser();
+  cur.classList.remove("fade");
+  cur.style.transition = "none";
+  cur.style.transformOrigin = "top center";
+  cur.style.transform = `translateY(${dy}px) scale(0.8)`;
+  cur.style.opacity = String(op);
+  void cur.offsetWidth;
+  cur.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1), opacity .5s";
+  cur.style.transform = "";
+  cur.style.opacity = "";
+  setTimeout(() => { cur.style.transition = ""; }, 550);
 }
 
 function renderRep(bump) {
@@ -455,11 +531,11 @@ function renderPlay() { $("play").innerHTML = playing ? ICON_STOP : ICON_PLAY; }
 function renderBpm() { $("bpmV").textContent = bpm; }
 function renderOpts() {
   $("modeBtn").innerHTML = randomMode ? ICON_SHUF : ICON_SEQ;
-  $("modeBtn").classList.toggle("on", randomMode);
+  $("modeBtn").className = "opt " + (randomMode ? "alt" : "def");
   $("subBtn").innerHTML = eighthClick ? ICON_8TH : ICON_4TH;
-  $("subBtn").classList.toggle("on", eighthClick);
+  $("subBtn").className = "opt " + (eighthClick ? "alt" : "def");
   $("notaBtn").innerHTML = showNotation ? ICON_STAFF : '<span class="opt-label">R/L</span>';
-  $("notaBtn").classList.toggle("on", showNotation);
+  $("notaBtn").className = "opt " + (showNotation ? "def" : "alt");
 }
 function pulse() { const p = $("play"); p.classList.remove("pulse"); void p.offsetWidth; p.classList.add("pulse"); }
 function hint(t) { $("hint").textContent = t; }
@@ -468,41 +544,36 @@ function setBpm(v) { bpm = Math.max(30, Math.min(240, v)); renderBpm(); save(); 
 function renderView() {
   $("sticking").classList.toggle("hidden", showNotation);
   $("notation").classList.toggle("show", showNotation);
-  if (showNotation) renderNotation();
+  if (showNotation) $("notation").innerHTML = notationSVG(pat);
+  renderNextBox();
 }
 
-function renderNotation() {
-  const box = $("notation");
-  if (!showNotation) return;
-  const s = EX[pat];
-  const W = 640, H = 100, ML = 30, MR = 10;
-  const usable = W - ML - MR;
-  const sp = usable / 16;
-  const staffY = [28, 36, 44, 52, 60];
-  const noteY = 44;
-  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
-  staffY.forEach(y => { svg += `<line x1="${ML-6}" y1="${y}" x2="${W-MR}" y2="${y}" stroke="rgba(255,242,224,0.2)" stroke-width="1"/>`; });
-  const barX = ML + sp * 8;
-  svg += `<line x1="${barX}" y1="${staffY[0]}" x2="${barX}" y2="${staffY[4]}" stroke="rgba(255,242,224,0.3)" stroke-width="1.5"/>`;
-  svg += `<line x1="${W-MR}" y1="${staffY[0]}" x2="${W-MR}" y2="${staffY[4]}" stroke="rgba(255,242,224,0.3)" stroke-width="1.5"/>`;
-  svg += `<line x1="${ML-6}" y1="${staffY[0]}" x2="${ML-6}" y2="${staffY[4]}" stroke="rgba(255,242,224,0.3)" stroke-width="1.5"/>`;
-  for (let i = 0; i < 16; i++) {
+function notationSVG(p) {
+  const s = EX[p], u = 16, sp = 40, ML = 34, MR = 34;
+  const W = ML + sp * u + MR, H = 112;
+  const sy = [30, 42, 54, 66, 78], ny = 54;
+  const ln = "rgba(255,242,224,0.25)", br = "rgba(255,242,224,0.6)";
+  let o = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  sy.forEach(y => { o += `<line x1="6" y1="${y}" x2="${W - 6}" y2="${y}" stroke="${ln}" stroke-width="1"/>`; });
+  // Wiederholungszeichen Anfang
+  o += `<rect x="6" y="30" width="4.5" height="48" fill="${br}"/><rect x="14" y="30" width="1.5" height="48" fill="${br}"/>`;
+  o += `<circle cx="21" cy="48" r="2.4" fill="${br}"/><circle cx="21" cy="60" r="2.4" fill="${br}"/>`;
+  // Wiederholungszeichen Ende
+  o += `<rect x="${W - 10.5}" y="30" width="4.5" height="48" fill="${br}"/><rect x="${W - 15.5}" y="30" width="1.5" height="48" fill="${br}"/>`;
+  o += `<circle cx="${W - 21}" cy="48" r="2.4" fill="${br}"/><circle cx="${W - 21}" cy="60" r="2.4" fill="${br}"/>`;
+  if (u === 16) { const bx = ML + sp * 8; o += `<line x1="${bx}" y1="30" x2="${bx}" y2="78" stroke="${br}" stroke-width="1.5"/>`; }
+  for (let i = 0; i < u; i++) {
     const x = ML + sp * i + sp / 2;
-    const isR = s[i] === 'R';
-    const col = isR ? '#d9a633' : '#a3202e';
-    svg += `<ellipse cx="${x}" cy="${noteY}" rx="5" ry="3.8" fill="${col}" transform="rotate(-15 ${x} ${noteY})"/>`;
-    svg += `<line x1="${x+4.5}" y1="${noteY-2}" x2="${x+4.5}" y2="${noteY - 26}" stroke="${col}" stroke-width="1.5"/>`;
-    svg += `<text x="${x}" y="${staffY[4] + 16}" text-anchor="middle" fill="${col}" font-size="11" font-weight="800" font-family="ui-rounded, system-ui, sans-serif">${s[i]}</text>`;
+    const col = s[i] === "R" ? "#d9a633" : "#a3202e";
+    o += `<ellipse cx="${x}" cy="${ny}" rx="7" ry="5.2" fill="${col}" transform="rotate(-15 ${x} ${ny})"/>`;
+    o += `<line x1="${x + 6}" y1="${ny - 3}" x2="${x + 6}" y2="20" stroke="${col}" stroke-width="2"/>`;
+    o += `<text x="${x}" y="102" text-anchor="middle" fill="${col}" font-size="15" font-weight="800" font-family="ui-rounded, system-ui, sans-serif">${s[i]}</text>`;
   }
-  for (let g = 0; g < 4; g++) {
-    const i0 = g * 4, i3 = g * 4 + 3;
-    const x0 = ML + sp * i0 + sp / 2 + 4.5;
-    const x3 = ML + sp * i3 + sp / 2 + 4.5;
-    const by = noteY - 26;
-    svg += `<line x1="${x0}" y1="${by}" x2="${x3}" y2="${by}" stroke="rgba(255,242,224,0.7)" stroke-width="2.5"/>`;
+  for (let g = 0; g < u / 4; g++) {
+    const x0 = ML + sp * (g * 4) + sp / 2 + 6, x3 = ML + sp * (g * 4 + 3) + sp / 2 + 6;
+    o += `<line x1="${x0}" y1="20" x2="${x3}" y2="20" stroke="rgba(255,242,224,0.75)" stroke-width="3.5"/>`;
   }
-  svg += '</svg>';
-  box.innerHTML = svg;
+  return o + "</svg>";
 }
 
 // ─── Events ───
@@ -520,6 +591,8 @@ $("tapZone").addEventListener("click", e => {
 $("sticking").addEventListener("click", () => {
   highlightOn = !highlightOn;
   save();
+  // dim/undim all letters
+  noteEls.forEach(el => { if (el) el.classList.toggle("dim", highlightOn); });
   if (!highlightOn && noteEls[shownStep]) noteEls[shownStep].classList.remove("on");
   if (highlightOn && playing && noteEls[shownStep]) noteEls[shownStep].classList.add("on");
 });
@@ -545,7 +618,7 @@ function openPresets() {
 $("bpmBtn").addEventListener("click", openPresets);
 $("presetOv").addEventListener("click", e => { if (e.target.id === "presetOv") e.currentTarget.classList.remove("show"); });
 
-$("modeBtn").addEventListener("click", () => { randomMode = !randomMode; played = new Set([pat]); renderOpts(); save(); });
+$("modeBtn").addEventListener("click", () => { randomMode = !randomMode; played = new Set([pat]); if (playing) sNext = nextPattern(sPat); renderOpts(); save(); });
 $("subBtn").addEventListener("click", () => { eighthClick = !eighthClick; renderOpts(); save(); });
 $("notaBtn").addEventListener("click", () => { showNotation = !showNotation; renderOpts(); renderView(); save(); });
 
@@ -569,7 +642,7 @@ $("pickOv").addEventListener("click", e => { if (e.target.id === "pickOv") e.cur
 document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); playing ? stop() : start(); } });
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
 }
 
 renderPattern(false); renderRep(); renderBpm(); renderOpts(); renderPlay();
