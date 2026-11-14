@@ -569,7 +569,7 @@ $("pickOv").addEventListener("click", e => { if (e.target.id === "pickOv") e.cur
 document.addEventListener("keydown", e => { if (e.code === "Space") { e.preventDefault(); playing ? stop() : start(); } });
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
+  navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
 renderPattern(false); renderRep(); renderBpm(); renderOpts(); renderPlay();
